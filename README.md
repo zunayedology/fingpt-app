@@ -1,1 +1,1 @@
-# fingpt-app
+# FinGPT App
