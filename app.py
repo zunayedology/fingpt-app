@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 import json
 
-st.title("Chatbot")
+st.title("FinGPT Chat")
 
 # Initialize session state for chat history
 if "messages" not in st.session_state:
