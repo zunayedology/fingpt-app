@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from pydantic import BaseModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
@@ -7,6 +7,7 @@ import os
 import requests
 import re
 import logging
+import bleach
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -20,16 +21,15 @@ if not hf_token:
 
 app = FastAPI()
 
-# Initialize FinGPT with LoRA
+# Initialize FinGPT on CPU
 base_model_name = "meta-llama/Llama-2-7b-chat-hf"
 lora_model_name = "FinGPT/fingpt-forecaster_dow30_llama2-7b_lora"
 try:
-    # Load base model
+    # Load base model on CPU
     base_model = AutoModelForCausalLM.from_pretrained(
         base_model_name,
         token=hf_token,
-        device_map="auto",
-        load_in_4bit=True  # 4-bit quantization for memory efficiency
+        device_map="cpu"  # Explicitly use CPU
     )
     # Load LoRA adapter
     model = PeftModel.from_pretrained(base_model, lora_model_name, token=hf_token)
@@ -58,8 +58,10 @@ def extract_appointment_details(query):
 
 @app.post("/query")
 async def handle_query(query: Query):
-    logger.info(f"Processing query: {query.text}")
-    text = query.text.lower()
+    # Sanitize user input
+    clean_text = bleach.clean(query.text)
+    logger.info(f"Processing query: {clean_text}")
+    text = clean_text.lower()
     
     # Handle specific front-desk tasks
     if "account balance" in text or "account details" in text:
@@ -87,7 +89,7 @@ async def handle_query(query: Query):
     else:
         # Use FinGPT for general financial queries or stock forecasting
         try:
-            inputs = tokenizer(query.text, return_tensors="pt", max_length=512, truncation=True)
+            inputs = tokenizer(clean_text, return_tensors="pt", max_length=512, truncation=True).to("cpu")
             outputs = model.generate(**inputs, max_length=200)
             response = tokenizer.decode(outputs[0], skip_special_tokens=True)
             return {"response": response}
