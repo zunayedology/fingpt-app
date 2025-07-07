@@ -1,2 +1,5 @@
 venv
+llama2_model
+lora_model
 .env
+main.log
